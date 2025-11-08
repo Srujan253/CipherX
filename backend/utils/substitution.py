@@ -1,11 +1,11 @@
-# utils/substitution.py
 from textblob import TextBlob
 from collections import Counter
-import string, random, math
+import string, random, math, re
 import nltk
 from nltk.corpus import words
+from wordfreq import zipf_frequency  # ✅ for realistic English scoring
 
-# Make sure the word list is available
+# Ensure English corpus is available
 try:
     nltk.data.find('corpora/words')
 except LookupError:
@@ -20,6 +20,13 @@ ENGLISH_FREQ = {
     'Q': 0.10, 'Z': 0.07
 }
 
+COMMON_BIGRAMS = [
+    "TH", "HE", "IN", "ER", "AN", "RE", "ON", "AT", "EN", "ND",
+    "TI", "ES", "OR", "TE", "OF", "ED", "IS", "IT", "AL", "AR"
+]
+
+
+# -------------------- Core Decryptor -------------------- #
 
 def substitution_decrypt(ciphertext, mapping):
     """Decrypt ciphertext using a substitution mapping dict."""
@@ -32,15 +39,17 @@ def substitution_decrypt(ciphertext, mapping):
     return result
 
 
+# -------------------- English Scoring -------------------- #
+
 def word_score(text):
-    """Check how many real English words exist in text."""
-    blob = TextBlob(text)
-    valid_words = [w for w in blob.words if len(w) > 2 and w.lower() in ENGLISH_WORDS]
-    return len(valid_words)
+    """Reward real English words."""
+    words_list = text.split()
+    valid = [w for w in words_list if w.lower() in ENGLISH_WORDS]
+    return len(valid) * 15
 
 
 def freq_score(text):
-    """Compare letter frequency distribution to English frequency."""
+    """Compare frequency distribution to English norms."""
     letters = [c for c in text.upper() if c.isalpha()]
     if not letters:
         return 0
@@ -54,17 +63,48 @@ def freq_score(text):
     return score / len(freq)
 
 
-def english_score(text):
-    """Hybrid score: word recognition + letter frequency similarity"""
-    return word_score(text) * 10 + freq_score(text)
+def bigram_score(text):
+    """Reward common English bigrams (TH, HE, IN, etc.)."""
+    text = text.upper()
+    bigrams = [text[i:i+2] for i in range(len(text) - 1) if text[i:i+2].isalpha()]
+    if not bigrams:
+        return 0
+    matches = sum(1 for b in bigrams if b in COMMON_BIGRAMS)
+    return (matches / len(bigrams)) * 100
 
+
+def probability_score(text):
+    """Reward realistic English word probabilities using wordfreq."""
+    words_list = text.split()
+    if not words_list:
+        return 0
+    total = 0
+    for w in words_list:
+        freq = zipf_frequency(w.lower(), 'en')
+        if len(w) > 2 and w.lower() not in ENGLISH_WORDS:
+            freq *= 0.6  # penalize nonsense words
+        total += freq
+    return (total / len(words_list)) * 10
+
+
+def english_score(text):
+    """Smarter hybrid score using frequency + linguistic patterns."""
+    ws = word_score(text)
+    fs = freq_score(text)
+    bs = bigram_score(text)
+    ps = probability_score(text)
+    total = (ws * 1.0) + (fs * 0.4) + (bs * 1.2) + (ps * 1.5)
+    return round(total, 2)
+
+
+# -------------------- Frequency-based Substitution Detector -------------------- #
 
 def detect_substitution(ciphertext, top_n=3):
     """
     Try frequency analysis with randomized mappings
     to find top N likely decryptions.
     """
-    ciphertext = ciphertext.upper()
+    ciphertext = re.sub(r'[^A-Za-z ]', '', ciphertext.upper())
     freq = Counter(c for c in ciphertext if c.isalpha())
     if not freq:
         return [{"mapping_variant": 0, "text": ciphertext, "score": 0}]
@@ -72,13 +112,11 @@ def detect_substitution(ciphertext, top_n=3):
     most_common = [c for c, _ in freq.most_common()]
     english_sorted = sorted(ENGLISH_FREQ.keys(), key=lambda k: ENGLISH_FREQ[k], reverse=True)
 
-    # Base map (align top frequency letters)
-    base_map = {}
-    for i, c in enumerate(most_common):
-        base_map[c] = english_sorted[i % len(english_sorted)]
+    # Base map aligning frequent letters
+    base_map = {c: english_sorted[i % len(english_sorted)] for i, c in enumerate(most_common)}
 
     results = []
-    for attempt in range(8):  # try 8 variations
+    for attempt in range(20):  # increased random tries for better accuracy
         mapping = base_map.copy()
         for _ in range(random.randint(2, 6)):
             a, b = random.sample(english_sorted, 2)
