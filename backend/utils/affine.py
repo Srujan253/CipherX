@@ -1,11 +1,11 @@
-# utils/vigenere.py
-import string
+# utils/affine.py
 from collections import Counter
-from nltk.corpus import words
+from math import gcd
 from wordfreq import zipf_frequency
+from nltk.corpus import words
 import nltk
 
-# Ensure dictionary is available
+# Ensure dictionary
 try:
     nltk.data.find('corpora/words')
 except LookupError:
@@ -21,23 +21,33 @@ ENGLISH_FREQ = {
 }
 
 
-def vigenere_decrypt(ciphertext, key):
-    """Decrypt Vigenère cipher using the provided key."""
-    result = []
-    key = key.upper()
-    key_index = 0
-    for char in ciphertext:
-        if char.isalpha():
-            base = ord('A') if char.isupper() else ord('a')
-            shift = ord(key[key_index % len(key)]) - ord('A')
-            result.append(chr((ord(char) - base - shift) % 26 + base))
-            key_index += 1
+# ---------------- Affine Core ---------------- #
+
+def mod_inverse(a, m):
+    """Return modular inverse of a under modulo m if it exists."""
+    for x in range(1, m):
+        if (a * x) % m == 1:
+            return x
+    return None
+
+
+def affine_decrypt(ciphertext, a, b):
+    """Decrypt Affine cipher with given keys a, b."""
+    a_inv = mod_inverse(a, 26)
+    if a_inv is None:
+        return ""
+    result = ""
+    for ch in ciphertext.upper():
+        if ch.isalpha():
+            x = ord(ch) - ord('A')
+            plain_val = (a_inv * (x - b)) % 26
+            result += chr(plain_val + ord('A'))
         else:
-            result.append(char)
-    return ''.join(result)
+            result += ch
+    return result
 
 
-# ---------------- ENGLISH SCORING SYSTEM ---------------- #
+# ---------------- Scoring System ---------------- #
 
 def word_score(text):
     words_list = text.split()
@@ -69,7 +79,7 @@ def probability_score(text):
         if w[0].isupper() and not w.isupper():
             freq *= 0.8
         if w.lower() not in ENGLISH_WORDS:
-            freq *= 0.7
+            freq *= 0.6
         total += freq
     return (total / len(words_list)) * 10
 
@@ -83,44 +93,35 @@ def repetition_penalty(text):
 
 
 def english_score(text):
+    """Weighted English-likeness scoring system."""
     ws = word_score(text) * 15
     fs = freq_score(text)
     ps = probability_score(text)
     rp = repetition_penalty(text)
     bonus = 20 if text.strip().lower() in ENGLISH_WORDS else 0
-    total = ws + (fs * 0.6) + (ps * 1.2) + rp + bonus
+    total = ws + (fs * 0.6) + (ps * 1.3) + rp + bonus
     return round(total, 2)
 
 
-# ---------------- FILTERED ENGLISH KEY LIST ---------------- #
+# ---------------- Affine Detector ---------------- #
 
-def get_possible_keys(max_len=4, min_len=2):
-    """Return short English words to use as possible Vigenere keys."""
-    common_keys = [
-        "KEY", "CODE", "LOCK", "SAFE", "DATA", "LOVE", "WORD", "FIRE",
-        "TIME", "LIFE", "BOOK", "NOTE", "PLAN", "TEAM", "WORK",
-        "TEST", "GOOD", "DAY", "SUN", "SKY", "STAR"
-    ]
-    # Add from nltk.words (filtered for A-Z only)
-    short_words = [w.upper() for w in ENGLISH_WORDS
-                   if min_len <= len(w) <= max_len and w.isalpha()]
-    return list(set(common_keys + short_words))
-
-
-# ---------------- SMART DETECTOR ---------------- #
-
-def detect_vigenere(ciphertext, max_key_len=4, top_n=3):
+def detect_affine(ciphertext, top_n=3):
     """
-    Auto-decrypt Vigenère cipher using only valid English words as keys.
+    Try all valid (a, b) combinations and rank by English score.
     """
-    ciphertext = ciphertext.upper().strip()
+    valid_a_values = [a for a in range(1, 26) if gcd(a, 26) == 1]
     results = []
-    possible_keys = get_possible_keys(max_len=max_key_len)
 
-    for key in possible_keys:
-        decrypted = vigenere_decrypt(ciphertext, key)
-        score = english_score(decrypted)
-        results.append({"key": key, "text": decrypted, "score": score})
+    for a in valid_a_values:
+        for b in range(26):
+            decrypted = affine_decrypt(ciphertext, a, b)
+            score = english_score(decrypted)
+            results.append({
+                "a": a,
+                "b": b,
+                "text": decrypted,
+                "score": score
+            })
 
     results.sort(key=lambda x: x["score"], reverse=True)
     return results[:top_n]

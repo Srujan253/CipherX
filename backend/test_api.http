@@ -1,0 +1,8 @@
+### Test Auto Detect
+POST http://127.0.0.1:5000/decrypt
+Content-Type: application/json
+
+{
+  "cipher_type": "Auto Detect",
+  "ciphertext": "KHOOR ZRUOG"
+}

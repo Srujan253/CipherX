@@ -10,43 +10,86 @@ const DecryptPage = () => {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
+  // ✅ Added Atbash & Affine Cipher here
   const cipherOptions = [
     { value: 'auto', label: 'Auto Detect' },
     { value: 'caesar', label: 'Caesar Cipher' },
     { value: 'vigenere', label: 'Vigenère Cipher' },
-    { value: 'atbash', label: 'Atbash Cipher' }
+    { value: 'monoalphabetic', label: 'Monoalphabetic Cipher' },
+    { value: 'atbash', label: 'Atbash Cipher' },
+    { value: 'affine', label: 'Affine Cipher' },
   ]
 
   const handleDecrypt = async () => {
     if (!inputText.trim()) {
-      setError('Please enter some text to decrypt')
-      return
+      setError("Please enter some text to decrypt");
+      return;
     }
 
-    setIsLoading(true)
-    setError('')
-    setSuccess(false)
-    setOutputText('')
+    setIsLoading(true);
+    setError("");
+    setSuccess(false);
+    setOutputText("");
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Mock decryption logic
-      if (inputText.toLowerCase().includes('error') || inputText.length < 3) {
-        throw new Error('Invalid cipher input or unrecognized pattern')
-      }
+      const response = await fetch("http://127.0.0.1:5000/decrypt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cipher_type:
+            cipherType === "auto"
+              ? "Auto Detect"
+              : cipherType === "caesar"
+              ? "Caesar Cipher"
+              : cipherType === "vigenere"
+              ? "Vigenere Cipher"
+              : cipherType === "monoalphabetic"
+              ? "Monoalphabetic Cipher"
+              : cipherType === "atbash"
+              ? "Atbash Cipher"
+              : cipherType === "affine"
+              ? "Affine Cipher"
+              : "Auto Detect",
+          ciphertext: inputText,
+        }),
+      });
 
-      // Simple mock decryption
-      const mockDecrypted = inputText.split('').reverse().join('').toUpperCase()
-      setOutputText(`DECRYPTED (${cipherType.toUpperCase()}): ${mockDecrypted}`)
-      setSuccess(true)
+      const data = await response.json();
+
+      if (data.error) throw new Error(data.error);
+
+      // ✅ Handles all ciphers (including Affine, Atbash)
+      if (data.top_results) {
+        const formatted = data.top_results
+          .map((r, i) => {
+            const label =
+              r.cipher ||
+              (r.shift !== undefined
+                ? `Caesar (Shift=${r.shift})`
+                : r.key
+                ? `Vigenère (Key=${r.key})`
+                : r.a !== undefined && r.b !== undefined
+                ? `Affine (a=${r.a}, b=${r.b})`
+                : r.mapping_shift !== undefined
+                ? `Monoalphabetic (Shift=${r.mapping_shift})`
+                : "Possible Decryption");
+
+            return `${i + 1}. ${label} | Score=${r.score}\n${r.text}`;
+          })
+          .join("\n\n");
+
+        setOutputText(`Top Results:\n\n${formatted}`);
+        setSuccess(true);
+      } else {
+        setOutputText(`${data.cipher_used}\n\n${data.decrypted_text || data.best_decryption}`);
+        setSuccess(true);
+      }
     } catch (err) {
-      setError(err.message)
+      setError(err.message || "Decryption failed");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleClear = () => {
     setInputText('')
