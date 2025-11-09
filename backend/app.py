@@ -76,7 +76,8 @@ def decrypt():
             results = detect_substitution(ciphertext, top_n=3)
             print("\n=== 🔠 Monoalphabetic Cipher Decryption ===")
             for i, r in enumerate(results[:3], 1):
-                print(f"{i}. Variant={r.get('mapping_variant', '?')} | Score={r['score']} | Text={r['text']}")
+                final = r.get('final_score', r.get('score', 0))
+                print(f"{i}. Variant={r.get('mapping_variant', '?')} | Score={final} | Text={r['text'][:50]}...")
             print("============================================\n")
 
             return jsonify({
@@ -106,7 +107,8 @@ def decrypt():
             print(f"Ciphertext: {ciphertext}")
             print("Top 5 Possible Decryptions:\n")
             for i, r in enumerate(results[:5], 1):
-                print(f"{i}. a={r['a']:<3} | b={r['b']:<3} | Score={r['score']:<6} | Text={r['text']}")
+                final = r.get('final_score', r.get('score', 0))
+                print(f"{i}. a={r['a']:<3} | b={r['b']:<3} | Score={final:<6} | Text={r['text'][:50]}...")
             print("=========================================\n")
 
             return jsonify({

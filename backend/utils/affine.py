@@ -1,127 +1,131 @@
-# utils/affine.py
-from collections import Counter
-from math import gcd
-from wordfreq import zipf_frequency
-from nltk.corpus import words
-import nltk
+"""
+affine.py
+----------
+Advanced Affine cipher auto-decryption module with AI-based English scoring.
 
-# Ensure dictionary
+Features:
+- Brute-forces all (a, b) key pairs (where gcd(a, 26) == 1)
+- Scores candidates using english_scorer.hybrid_score()
+- Refines top results using transformer-based scoring
+- Returns top N most probable plaintexts
+"""
+
+import math
+
+# Try relative import first (when used as package), then absolute
 try:
-    nltk.data.find('corpora/words')
-except LookupError:
-    nltk.download('words')
+    from .english_scorer import hybrid_score, refine_with_transformer
+except ImportError:
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    from english_scorer import hybrid_score, refine_with_transformer
 
-ENGLISH_WORDS = set(words.words())
-ENGLISH_FREQ = {
-    'E': 12.70, 'T': 9.06, 'A': 8.17, 'O': 7.51, 'I': 6.97, 'N': 6.75,
-    'S': 6.33, 'H': 6.09, 'R': 5.99, 'D': 4.25, 'L': 4.03, 'C': 2.78,
-    'U': 2.76, 'M': 2.41, 'W': 2.36, 'F': 2.23, 'G': 2.02, 'Y': 1.97,
-    'P': 1.93, 'B': 1.49, 'V': 0.98, 'K': 0.77, 'J': 0.15, 'X': 0.15,
-    'Q': 0.10, 'Z': 0.07
-}
+# ----------------- Math Utilities -----------------
+
+def gcd(a, b):
+    """Greatest common divisor."""
+    while b:
+        a, b = b, a % b
+    return a
 
 
-# ---------------- Affine Core ---------------- #
-
-def mod_inverse(a, m):
-    """Return modular inverse of a under modulo m if it exists."""
+def mod_inv(a, m):
+    """Modular inverse of a mod m."""
+    a %= m
     for x in range(1, m):
         if (a * x) % m == 1:
             return x
     return None
 
 
-def affine_decrypt(ciphertext, a, b):
-    """Decrypt Affine cipher with given keys a, b."""
-    a_inv = mod_inverse(a, 26)
+# ----------------- Affine Cipher Core -----------------
+
+def affine_decrypt(ciphertext, a, b, alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ"):
+    """
+    D(x) = a_inv * (x - b) mod m
+    Works for both upper and lower case.
+    """
+    result = []
+    m = len(alphabet)
+    a_inv = mod_inv(a, m)
     if a_inv is None:
         return ""
-    result = ""
-    for ch in ciphertext.upper():
-        if ch.isalpha():
-            x = ord(ch) - ord('A')
-            plain_val = (a_inv * (x - b)) % 26
-            result += chr(plain_val + ord('A'))
+
+    for ch in ciphertext:
+        if ch.upper() in alphabet:
+            x = alphabet.index(ch.upper())
+            dec = alphabet[(a_inv * (x - b)) % m]
+            # preserve case
+            result.append(dec.lower() if ch.islower() else dec)
         else:
-            result += ch
-    return result
+            result.append(ch)
+
+    return "".join(result)
 
 
-# ---------------- Scoring System ---------------- #
+# ----------------- Affine Auto Detection -----------------
 
-def word_score(text):
-    words_list = text.split()
-    valid = [w for w in words_list if w.lower() in ENGLISH_WORDS]
-    return len(valid)
-
-
-def freq_score(text):
-    letters = [c for c in text.upper() if c.isalpha()]
-    if not letters:
-        return 0
-    freq = Counter(letters)
-    total = sum(freq.values())
-    score = 0
-    for letter, count in freq.items():
-        expected = ENGLISH_FREQ.get(letter, 0)
-        actual = (count / total) * 100
-        score += 100 - abs(expected - actual)
-    return score / len(freq)
-
-
-def probability_score(text):
-    words_list = text.split()
-    if not words_list:
-        return 0
-    total = 0
-    for w in words_list:
-        freq = zipf_frequency(w.lower(), 'en')
-        if w[0].isupper() and not w.isupper():
-            freq *= 0.8
-        if w.lower() not in ENGLISH_WORDS:
-            freq *= 0.6
-        total += freq
-    return (total / len(words_list)) * 10
-
-
-def repetition_penalty(text):
-    letters = [c for c in text.upper() if c.isalpha()]
-    if not letters:
-        return 0
-    duplicates = sum(letters.count(c) - 1 for c in set(letters))
-    return max(0, 10 - duplicates)
-
-
-def english_score(text):
-    """Weighted English-likeness scoring system."""
-    ws = word_score(text) * 15
-    fs = freq_score(text)
-    ps = probability_score(text)
-    rp = repetition_penalty(text)
-    bonus = 20 if text.strip().lower() in ENGLISH_WORDS else 0
-    total = ws + (fs * 0.6) + (ps * 1.3) + rp + bonus
-    return round(total, 2)
-
-
-# ---------------- Affine Detector ---------------- #
-
-def detect_affine(ciphertext, top_n=3):
+def detect_affine(ciphertext, top_n=5, refine=True):
     """
-    Try all valid (a, b) combinations and rank by English score.
+    Brute-force all valid (a,b) key pairs and score using hybrid English detection.
+    Optionally refine top results using transformer re-ranking.
     """
-    valid_a_values = [a for a in range(1, 26) if gcd(a, 26) == 1]
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    m = len(alphabet)
+    valid_a = [a for a in range(1, m) if gcd(a, m) == 1]
     results = []
 
-    for a in valid_a_values:
-        for b in range(26):
-            decrypted = affine_decrypt(ciphertext, a, b)
-            score = english_score(decrypted)
+    for a in valid_a:
+        for b in range(m):
+            decrypted = affine_decrypt(ciphertext, a, b, alphabet)
+            if not decrypted.strip():
+                continue
+            score = hybrid_score(decrypted)
+            if score <= 0.05:  # filter noise
+                continue
             results.append({
                 "a": a,
                 "b": b,
                 "text": decrypted,
-                "score": score
+                "score": round(score, 4)
             })
 
+    if not results:
+        return []
+
+    # Sort by base hybrid score
     results.sort(key=lambda x: x["score"], reverse=True)
-    return results[:top_n]
+    shortlist = results[:80]  # keep top 80
+
+    # Optional transformer refinement (only for top 10)
+    if refine:
+        shortlist = refine_with_transformer(shortlist, top_k=10)
+
+    # Final sorting by final_score (after refinement)
+    final_sorted = sorted(shortlist, key=lambda x: x.get("final_score", x["score"]), reverse=True)
+    top = final_sorted[:top_n]
+
+    # Clean, minimal result
+    cleaned = [
+        {
+            "a": r["a"],
+            "b": r["b"],
+            "score": round(r.get("final_score", r["score"]), 4),
+            "text": r["text"]
+        }
+        for r in top
+    ]
+    return cleaned
+
+
+# ----------------- Demo -----------------
+
+if __name__ == "__main__":
+    sample = "RCLLA OAPLX"  # Ciphertext for "HELLO WORLD" (a=5, b=8)
+    print("=== 🔍 Affine Cipher Auto-Detection ===")
+    results = detect_affine(sample, top_n=5, refine=True)
+    for i, r in enumerate(results, 1):
+        print(f"{i}. a={r['a']:2d} | b={r['b']:2d} | Score={r['score']:7.3f} | Text={r['text']}")

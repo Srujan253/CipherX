@@ -1,126 +1,132 @@
 # utils/vigenere.py
+import itertools
 import string
-from collections import Counter
+import re
 from nltk.corpus import words
-from wordfreq import zipf_frequency
 import nltk
+from wordfreq import zipf_frequency
 
-# Ensure dictionary is available
+# English scoring utilities (cheap first + refine)
+try:
+    from .english_scorer import cheap_score, refine_with_transformer
+except ImportError:
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    from english_scorer import cheap_score, refine_with_transformer
+
+# --------- setup ----------
 try:
     nltk.data.find('corpora/words')
 except LookupError:
     nltk.download('words')
 
 ENGLISH_WORDS = set(words.words())
-ENGLISH_FREQ = {
-    'E': 12.70, 'T': 9.06, 'A': 8.17, 'O': 7.51, 'I': 6.97, 'N': 6.75,
-    'S': 6.33, 'H': 6.09, 'R': 5.99, 'D': 4.25, 'L': 4.03, 'C': 2.78,
-    'U': 2.76, 'M': 2.41, 'W': 2.36, 'F': 2.23, 'G': 2.02, 'Y': 1.97,
-    'P': 1.93, 'B': 1.49, 'V': 0.98, 'K': 0.77, 'J': 0.15, 'X': 0.15,
-    'Q': 0.10, 'Z': 0.07
-}
 
-
-def vigenere_decrypt(ciphertext, key):
-    """Decrypt Vigenère cipher using the provided key."""
+# --------- core decrypt ----------
+def vigenere_decrypt(ciphertext: str, key: str) -> str:
+    """Decrypt Vigenère cipher using provided key."""
     result = []
     key = key.upper()
     key_index = 0
-    for char in ciphertext:
-        if char.isalpha():
-            base = ord('A') if char.isupper() else ord('a')
+    for ch in ciphertext:
+        if ch.isalpha():
+            base = ord('A') if ch.isupper() else ord('a')
             shift = ord(key[key_index % len(key)]) - ord('A')
-            result.append(chr((ord(char) - base - shift) % 26 + base))
+            result.append(chr((ord(ch) - base - shift) % 26 + base))
             key_index += 1
         else:
-            result.append(char)
+            result.append(ch)
     return ''.join(result)
 
 
-# ---------------- ENGLISH SCORING SYSTEM ---------------- #
-
-def word_score(text):
-    words_list = text.split()
-    valid = [w for w in words_list if w.lower() in ENGLISH_WORDS]
-    return len(valid)
-
-
-def freq_score(text):
-    letters = [c for c in text.upper() if c.isalpha()]
-    if not letters:
-        return 0
-    freq = Counter(letters)
-    total = sum(freq.values())
-    score = 0
-    for letter, count in freq.items():
-        expected = ENGLISH_FREQ.get(letter, 0)
-        actual = (count / total) * 100
-        score += 100 - abs(expected - actual)
-    return score / len(freq)
-
-
-def probability_score(text):
-    words_list = text.split()
-    if not words_list:
-        return 0
-    total = 0
-    for w in words_list:
-        freq = zipf_frequency(w.lower(), 'en')
-        if w[0].isupper() and not w.isupper():
-            freq *= 0.8
-        if w.lower() not in ENGLISH_WORDS:
-            freq *= 0.7
-        total += freq
-    return (total / len(words_list)) * 10
-
-
-def repetition_penalty(text):
-    letters = [c for c in text.upper() if c.isalpha()]
-    if not letters:
-        return 0
-    duplicates = sum(letters.count(c) - 1 for c in set(letters))
-    return max(0, 10 - duplicates)
-
-
-def english_score(text):
-    ws = word_score(text) * 15
-    fs = freq_score(text)
-    ps = probability_score(text)
-    rp = repetition_penalty(text)
-    bonus = 20 if text.strip().lower() in ENGLISH_WORDS else 0
-    total = ws + (fs * 0.6) + (ps * 1.2) + rp + bonus
-    return round(total, 2)
-
-
-# ---------------- FILTERED ENGLISH KEY LIST ---------------- #
-
-def get_possible_keys(max_len=4, min_len=2):
-    """Return short English words to use as possible Vigenere keys."""
+# --------- generate limited, realistic keys ----------
+def generate_keys(max_len=4, common_only=True, max_extra_words=300):
+    """
+    Return a compact list of candidate keys:
+      - Always include a curated set of common keys.
+      - Optionally add the top `max_extra_words` most frequent short English words (from wordfreq).
+      - And a small set of generated seeds from top letters for variety.
+    This avoids thousands of candidates while still covering likely keys.
+    """
     common_keys = [
-        "KEY", "CODE", "LOCK", "SAFE", "DATA", "LOVE", "WORD", "FIRE",
-        "TIME", "LIFE", "BOOK", "NOTE", "PLAN", "TEAM", "WORK",
-        "TEST", "GOOD", "DAY", "SUN", "SKY", "STAR"
+        "KEY", "LOCK", "CODE", "DATA", "TIME", "TEST", "WORD", "LOVE",
+        "PASS", "NOTE", "BOOK", "PLAN", "TEAM", "STAR", "SUN", "DAY",
+        "SAFE", "LIFE", "GOOD", "WORK", "SEC", "SAFE", "CRYPTO"
     ]
-    # Add from nltk.words (filtered for A-Z only)
-    short_words = [w.upper() for w in ENGLISH_WORDS
-                   if min_len <= len(w) <= max_len and w.isalpha()]
-    return list(set(common_keys + short_words))
+
+    if common_only:
+        # small curated set
+        return list(dict.fromkeys([k.upper() for k in common_keys]))
+
+    # gather short words from nltk but filter by zipf frequency (wordfreq)
+    short_candidates = [w.upper() for w in ENGLISH_WORDS if w.isalpha() and 2 <= len(w) <= max_len]
+    # score them by wordfreq and pick top N
+    scored = []
+    for w in short_candidates:
+        try:
+            f = zipf_frequency(w.lower(), 'en')
+        except Exception:
+            f = -10.0
+        scored.append((f, w))
+    scored.sort(reverse=True)  # highest frequency first
+    top_words = [w for _, w in scored[:max_extra_words]]
+
+    # small generated seeds using the most frequent letters
+    top_letters = "ETAOINSHRDLU"
+    generated = []
+    for L in range(2, max_len + 1):
+        # keep small: product of first 4 letters only
+        for p in itertools.product(top_letters[:4], repeat=L):
+            generated.append(''.join(p))
+
+    all_keys = list(dict.fromkeys(common_keys + top_words + generated))
+    return all_keys
 
 
-# ---------------- SMART DETECTOR ---------------- #
-
-def detect_vigenere(ciphertext, max_key_len=4, top_n=3):
+# --------- detection: cheap-first then refine with transformer ----------
+def detect_vigenere(ciphertext: str, max_key_len=4, top_n=5, max_candidates=1000, refine_top_k=5):
     """
-    Auto-decrypt Vigenère cipher using only valid English words as keys.
+    Auto-decrypt Vigenère:
+      - Generate a limited set of candidate keys
+      - Score each decryption cheaply (cheap_score)
+      - Keep top `max_candidates` by cheap_score
+      - Refine the top `refine_top_k` with transformer via refine_with_transformer
+      - Return top_n results
     """
-    ciphertext = ciphertext.upper().strip()
+    # normalize ciphertext: keep letters and spaces (preserve spaces for word scoring)
+    ciphertext_clean = ''.join(ch for ch in ciphertext if ch.isalpha() or ch.isspace()).upper()
+    if not ciphertext_clean:
+        return []
+
+    # candidate keys (not huge)
+    candidate_keys = generate_keys(max_len=max_key_len, common_only=False, max_extra_words=500)
+
+    # Score every candidate cheaply
+    candidates = []
+    for key in candidate_keys:
+        # skip keys longer than allowed
+        if len(key) > max_key_len:
+            continue
+        decrypted = vigenere_decrypt(ciphertext_clean, key)
+        score = cheap_score(decrypted)
+        candidates.append({"key": key, "text": decrypted, "score": score})
+
+    # Reduce to a manageable shortlist by cheap score
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+    shortlist = candidates[:max_candidates]
+
+    # Refine shortlist with transformer (only top refine_top_k will actually call the model)
+    refined = refine_with_transformer(shortlist, top_k=refine_top_k)
+
+    # Prepare final results (keep top_n)
     results = []
-    possible_keys = get_possible_keys(max_len=max_key_len)
-
-    for key in possible_keys:
-        decrypted = vigenere_decrypt(ciphertext, key)
-        score = english_score(decrypted)
-        results.append({"key": key, "text": decrypted, "score": score})
-
-    results.sort(key=lambda x: x["score"], reverse=True)
-    return results[:top_n]
+    for r in refined[:top_n]:
+        results.append({
+            "key": r.get("key"),
+            "text": r.get("text"),
+            "score": r.get("final_score", r.get("score"))
+        })
+    return results

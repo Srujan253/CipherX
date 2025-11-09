@@ -1,15 +1,15 @@
-from wordfreq import zipf_frequency
-from nltk.corpus import words
-import nltk
-
-# Ensure English dictionary is available
+# utils/atbash.py
 try:
-    nltk.data.find('corpora/words')
-except LookupError:
-    nltk.download('words')
+    from .english_scorer import cheap_score
+except ImportError:
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    from english_scorer import cheap_score
 
-ENGLISH_WORDS = set(words.words())
-
+# ================= ATBASH CORE ================= #
 
 def atbash_decrypt(ciphertext):
     """Decrypt (or encrypt) using Atbash cipher. Same operation both ways."""
@@ -23,21 +23,12 @@ def atbash_decrypt(ciphertext):
     return ''.join(result)
 
 
-def english_score(text):
-    """Simple English-likeness scoring using dictionary words + word frequency."""
-    words_list = text.split()
-    valid_count = sum(1 for w in words_list if w.lower() in ENGLISH_WORDS)
-    if not words_list:
-        return 0
-    avg_freq = sum(zipf_frequency(w.lower(), 'en') for w in words_list) / len(words_list)
-    score = valid_count * 10 + avg_freq * 10
-    return round(score, 2)
-
+# ================= DETECTION ================= #
 
 def detect_atbash(ciphertext):
-    """Detect and score Atbash cipher output."""
+    """Run Atbash decryption and evaluate English-likeness using fast scoring."""
     text = atbash_decrypt(ciphertext)
-    score = english_score(text)
+    score = cheap_score(text)  # ✅ use fast English scorer
     return [{
         "cipher": "Atbash Cipher",
         "text": text,
