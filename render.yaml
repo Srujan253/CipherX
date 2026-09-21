@@ -17,13 +17,11 @@ services:
         value: production
 
   # ==========================================================
-  # 2. Frontend Static Site (React + Vite)
+  # 2. Frontend Static Site (React + Vite, Global CDN)
   # ==========================================================
   - type: web
     name: cipherx-frontend
     runtime: static
-    region: oregon
-    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
