@@ -59,11 +59,11 @@ def _ensure_model():
     """Lazy-load GPT-2 only once."""
     global _MODEL, _TOKENIZER
     if _MODEL is None or _TOKENIZER is None:
-        print("🔹 Loading GPT-2 small model for refinement...")
+        print("[INFO] Loading GPT-2 small model for refinement...")
         _TOKENIZER = AutoTokenizer.from_pretrained("gpt2")
         _MODEL = AutoModelForCausalLM.from_pretrained("gpt2").to(_DEVICE)
         _MODEL.eval()
-        print(f"✅ GPT-2 ready on {_DEVICE}")
+        print(f"[OK] GPT-2 ready on {_DEVICE}")
 
 def clean_text(text: str) -> str:
     text = re.sub(r"[^A-Za-z\s]", " ", text)
@@ -176,7 +176,7 @@ def transformer_score(text: str) -> float:
         # Convert loss to positive “fluency” score
         return max(0.0, 1 / (1 + loss))
     except Exception as e:
-        print("⚠️ GPT-2 scoring failed:", e)
+        print("[WARN] GPT-2 scoring failed:", e)
         return 0.0
 
 def refine_with_transformer(candidates, top_k=5):
@@ -218,7 +218,7 @@ def rank_decryptions(decryptions: dict, top_n=10, show_console=True):
     scored.sort(key=lambda x: x["score"], reverse=True)
 
     if show_console:
-        print("\n🔝 Top Candidates:")
+        print("\n[TOP] Top Candidates:")
         for i, c in enumerate(scored[:top_n], 1):
             print(f"{i:2d}. {c['key']:>8} → {c['text'][:60]} (score={c['score']:.4f})")
 
@@ -237,6 +237,6 @@ if __name__ == "__main__":
 
     results = rank_decryptions(examples)
     refined = refine_with_transformer(results[:5])
-    print("\n✅ Final ranked (refined):")
+    print("\n[OK] Final ranked (refined):")
     for r in refined[:3]:
         print(f"{r['key']}: {r['text']}  → final_score={r['final_score']:.4f}")

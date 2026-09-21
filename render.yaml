@@ -1,0 +1,35 @@
+services:
+  # ==========================================================
+  # 1. Backend Web Service (Flask API)
+  # ==========================================================
+  - type: web
+    name: cipherx-backend
+    env: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && python -m nltk.downloader words
+    startCommand: gunicorn --bind 0.0.0.0:$PORT app:app --workers 1 --threads 2 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: FLASK_ENV
+        value: production
+
+  # ==========================================================
+  # 2. Frontend Static Site (React + Vite)
+  # ==========================================================
+  - type: static
+    name: cipherx-frontend
+    env: static
+    region: oregon
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: cipherx-backend
+          property: host

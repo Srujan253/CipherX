@@ -20,14 +20,14 @@ try:
     
     if hasattr(english_scorer, "hybrid_score"):
         smart_score = english_scorer.hybrid_score
-        print("✅ Using advanced english_scorer.hybrid_score for Caesar scoring.")
+        print("[OK] Using advanced english_scorer.hybrid_score for Caesar scoring.")
     elif hasattr(english_scorer, "cheap_score"):
         smart_score = english_scorer.cheap_score
-        print("✅ Using english_scorer.cheap_score for Caesar scoring.")
+        print("[OK] Using english_scorer.cheap_score for Caesar scoring.")
     else:
         raise AttributeError("No hybrid_score or cheap_score found in english_scorer")
 except Exception as e:
-    print("⚠️ english_scorer not found or invalid, using fallback:", e)
+    print("[WARN] english_scorer not found or invalid, using fallback:", e)
     smart_score = None
 
 # === Setup ===
@@ -91,7 +91,7 @@ def detect_caesar(ciphertext, top_n=3):
         })
 
     results.sort(key=lambda x: x["score"], reverse=True)
-    print(f"\n🔍 Caesar Auto-Decryption for: '{ciphertext}'")
+    print(f"\n[DETECT] Caesar Auto-Decryption for: '{ciphertext}'")
     for i, r in enumerate(results[:min(10, len(results))], 1):
         print(f"{i:2d}. shift={r['shift']:2d} → {r['text']}  (score={r['score']:.4f})")
 
@@ -113,4 +113,4 @@ if __name__ == "__main__":
     ]
     for text in tests:
         best = detect_caesar(text)
-        print(f"✅ Best guess: {best[0]['text']} (shift={best[0]['shift']})\n")
+        print(f"[OK] Best guess: {best[0]['text']} (shift={best[0]['shift']})\n")

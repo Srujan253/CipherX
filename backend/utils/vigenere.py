@@ -158,7 +158,7 @@ def detect_vigenere(ciphertext: str, max_key_len=10, top_n=5):
     """
     text = clean_letters(ciphertext)
     if len(text) < 20:
-        print("⚠️ Short ciphertext — low confidence.")
+        print("[WARN] Short ciphertext — low confidence.")
 
     lengths = likely_key_lengths(ciphertext, max_len=max_key_len)
     results = []

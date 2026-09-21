@@ -1,100 +1,101 @@
 import { motion } from 'framer-motion'
-import { Shield, Menu, X } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
-import { useState } from 'react'
 
 const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false)
   const location = useLocation()
 
-  const navItems = [
-    { name: 'Home', path: '/' },
-    { name: 'Decrypt', path: '/decrypt' },
-    { name: 'About', path: '#' },
-    { name: 'Contact', path: '#' }
-  ]
-
   return (
-    <motion.nav
-      initial={{ y: -100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="fixed top-0 left-0 right-0 z-50 backdrop-blur-lg bg-white/5 border-b border-white/10"
-    >
-      <div className="max-w-7xl mx-auto px-6 py-3">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3 group">
-            <motion.div
-              whileHover={{ rotate: 360 }}
-              transition={{ duration: 0.5 }}
-              className="p-2 rounded-lg bg-white/10 border border-cyan-400/30"
-            >
-              <Shield className="w-6 h-6 text-cyan-400" />
-            </motion.div>
-            <span className="text-xl font-bold text-white">
-              CipherX
-            </span>
-          </Link>
-
-          {/* Desktop Navigation */}
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-8">
-              {navItems.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.path}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                    location.pathname === item.path
-                      ? 'text-cyan-400 bg-cyan-400/10'
-                      : 'text-gray-300 hover:text-cyan-400 hover:bg-white/5'
-                  }`}
-                >
-                  {item.name}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="p-2 rounded-md text-gray-400 hover:text-cyan-400 hover:bg-white/10 transition-colors"
-            >
-              {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Navigation */}
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden"
-          >
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 border-t border-white/10">
-              {navItems.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.path}
-                  onClick={() => setIsOpen(false)}
-                  className={`block px-3 py-2 rounded-md text-base font-medium transition-all duration-200 ${
-                    location.pathname === item.path
-                      ? 'text-cyan-400 bg-cyan-400/10'
-                      : 'text-gray-300 hover:text-cyan-400 hover:bg-white/5'
-                  }`}
-                >
-                  {item.name}
-                </Link>
-              ))}
-            </div>
-          </motion.div>
-        )}
+    <header className="relative w-full border-b border-[#d6cdba] bg-[#f4eedb] select-none z-30">
+      {/* Dangling Retro Mini Mascot hanging from top rim */}
+      <div className="absolute left-1/2 -translate-x-1/2 -top-1 pointer-events-none z-40">
+        <motion.div
+          animate={{ y: [0, 3, 0], rotate: [-1, 1.5, -1] }}
+          transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+          className="flex flex-col items-center"
+        >
+          {/* Subtle string/hook line */}
+          <div className="w-[1.5px] h-3 bg-[#8c8273]"></div>
+          {/* Stylized dangling Luffy-style pirate character SVG */}
+          <svg width="28" height="34" viewBox="0 0 28 34" fill="none">
+            {/* Straw Hat */}
+            <ellipse cx="14" cy="9" rx="12" ry="3.5" fill="#facc15" stroke="#ca8a04" strokeWidth="1" />
+            <path d="M7 8 C7 4, 21 4, 21 8" fill="#eab308" />
+            <rect x="7" y="7" width="14" height="2" fill="#dc2626" />
+            {/* Head */}
+            <circle cx="14" cy="13" rx="5" ry="5" fill="#fed7aa" />
+            {/* Eyes and grin */}
+            <circle cx="12" cy="12" r="0.8" fill="#1c1917" />
+            <circle cx="16" cy="12" r="0.8" fill="#1c1917" />
+            <path d="M12 15 Q14 17 16 15" stroke="#1c1917" strokeWidth="0.8" fill="none" />
+            {/* Red Vest / Body */}
+            <rect x="10.5" y="17" width="7" height="8" rx="2" fill="#dc2626" />
+            {/* Arms holding the rope */}
+            <path d="M11 18 L13 2" stroke="#fed7aa" strokeWidth="2" strokeLinecap="round" />
+            <path d="M17 18 L15 2" stroke="#fed7aa" strokeWidth="2" strokeLinecap="round" />
+            {/* Blue shorts */}
+            <rect x="11" y="24" width="6" height="4" fill="#2563eb" />
+            {/* Little legs dangling */}
+            <path d="M12 28 L11 32" stroke="#fed7aa" strokeWidth="1.8" strokeLinecap="round" />
+            <path d="M16 28 L17 32" stroke="#fed7aa" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </motion.div>
       </div>
-    </motion.nav>
+
+      <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+        {/* Left Side: Vintage Stamp Logo + CipherX + Subtitle */}
+        <Link to="/" className="flex items-center space-x-3.5 group">
+          {/* Double-circle (X) Stamp */}
+          <div className="relative w-10 h-10 rounded-full border-2 border-[#7e221d] flex items-center justify-center p-[2px] transition-transform duration-300 group-hover:scale-105">
+            <div className="w-full h-full rounded-full border border-dashed border-[#7e221d] flex items-center justify-center bg-[#f7f2e5]">
+              <span className="font-serif-vintage font-black text-[#7e221d] text-lg leading-none">
+                X
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <h1 className="font-serif-vintage font-bold text-2xl tracking-wide text-[#7e221d] leading-none">
+              CipherX
+            </h1>
+            <p className="font-typewriter text-[10px] tracking-[0.2em] uppercase text-[#6d6457] mt-0.5">
+              Classical Cipher Auto-Decryption
+            </p>
+          </div>
+        </Link>
+
+        {/* Right Side: Typewriter navigation */}
+        <nav className="flex items-center space-x-6">
+          <Link
+            to="/decrypt"
+            className={`font-typewriter text-xs uppercase tracking-widest px-3 py-1.5 rounded transition-all ${
+              location.pathname === '/decrypt'
+                ? 'bg-[#7e221d] text-[#faf6ee] font-bold shadow-xs'
+                : 'text-[#52493d] hover:text-[#7e221d] hover:bg-[#eae1cd]'
+            }`}
+          >
+            [ Decryptor ]
+          </Link>
+          <Link
+            to="/"
+            className={`font-typewriter text-xs uppercase tracking-widest px-3 py-1.5 rounded transition-all ${
+              location.pathname === '/'
+                ? 'bg-[#7e221d] text-[#faf6ee] font-bold shadow-xs'
+                : 'text-[#52493d] hover:text-[#7e221d] hover:bg-[#eae1cd]'
+            }`}
+          >
+            [ Home ]
+          </Link>
+          <a
+            href="https://github.com/Srujan253/CipherX"
+            target="_blank"
+            rel="noreferrer"
+            className="font-typewriter text-xs uppercase tracking-widest text-[#52493d] hover:text-[#7e221d] px-2 py-1.5 transition-colors hidden sm:inline-block"
+          >
+            GitHub
+          </a>
+        </nav>
+      </div>
+    </header>
   )
 }
 

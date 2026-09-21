@@ -1,6 +1,13 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import traceback
+import sys, traceback
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 # === Import cipher modules ===
 from utils.detect_cipher import auto_detect
@@ -21,19 +28,19 @@ def decrypt():
         cipher_type = (data.get('cipher_type') or '').strip().lower()
         ciphertext = (data.get('ciphertext') or '').strip()
 
-        print("\n=== 🔍 Decrypt Request Received ===")
+        print("\n=== [DECRYPT] Request Received ===")
         print("Cipher Type:", cipher_type)
         print("Ciphertext:", ciphertext)
 
         if not ciphertext:
-            print("❌ Error: Ciphertext is empty")
+            print("[ERROR] Ciphertext is empty")
             return jsonify({"error": "Ciphertext is required"}), 400
 
         # AUTO DETECT MODE
         if cipher_type in ["auto", "auto detect"]:
-            print("⚙️ Running Auto Detection...")
+            print("[AUTO] Running Auto Detection...")
             result = auto_detect(ciphertext)
-            print("✅ Auto Detect Result:", result["best_cipher"])
+            print("[OK] Auto Detect Result:", result["best_cipher"])
             return jsonify({
                 "cipher_used": result["best_cipher"],
                 "best_decryption": result["best_text"],
@@ -120,11 +127,11 @@ def decrypt():
 
         # INVALID TYPE
         else:
-            print("❌ Invalid cipher type:", cipher_type)
+            print("[ERROR] Invalid cipher type:", cipher_type)
             return jsonify({"error": f"Invalid cipher type '{cipher_type}'"}), 400
 
     except Exception as e:
-        print("🔥 EXCEPTION OCCURRED:")
+        print("[EXCEPTION] Error occurred:")
         traceback.print_exc()
         return jsonify({
             "error": str(e),

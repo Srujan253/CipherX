@@ -2,11 +2,11 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 
-print("🔹 Loading GPT-2 model for English scoring...")
+print("[INFO] Loading GPT-2 model for English scoring...")
 tokenizer = AutoTokenizer.from_pretrained("gpt2")     # ← full GPT-2
 model = AutoModelForCausalLM.from_pretrained("gpt2")
 model.eval()
-print("✅ GPT-2 loaded successfully!")
+print("[OK] GPT-2 loaded successfully!")
 
 def gpt2_score(text: str) -> float:
     """
@@ -24,5 +24,5 @@ def gpt2_score(text: str) -> float:
         score = max(0, 400 - perplexity)   # invert so higher = better
         return round(score, 2)
     except Exception as e:
-        print("⚠️ GPT-2 scoring failed:", e)
+        print("[WARN] GPT-2 scoring failed:", e)
         return 0.0

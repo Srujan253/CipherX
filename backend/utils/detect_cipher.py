@@ -1,6 +1,13 @@
 import sys, os, re, time, traceback
 from wordfreq import zipf_frequency
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 # ---------------- Package import auto-fix ---------------- #
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -73,7 +80,7 @@ def auto_detect(ciphertext, top_n=3):
         ("Affine", detect_affine, {"top_n": 3}),
     ]
 
-    print("\n=== 🔍 AUTO DETECTION START ===")
+    print("\n=== [AUTO] Detection Start ===")
 
     for name, func, kwargs in detectors:
         print(f"▶ Running {name} detection...")
@@ -98,7 +105,7 @@ def auto_detect(ciphertext, top_n=3):
             })
 
     if not combined_results:
-        print("⚠️ No valid decryption detected.")
+        print("[WARN] No valid decryption detected.")
         return {"best_cipher": "Unknown", "best_text": ciphertext, "top_results": []}
 
     # Sort by English-likeness
@@ -107,7 +114,7 @@ def auto_detect(ciphertext, top_n=3):
     best = top_results[0]
 
     # Summary
-    print("\n=== ✅ AUTO DETECTION SUMMARY ===")
+    print("\n=== [OK] Auto Detection Summary ===")
     print(f"Ciphertext: {ciphertext[:80]}{'...' if len(ciphertext) > 80 else ''}")
     for i, r in enumerate(top_results, 1):
         print(f"{i}. {r['cipher']} | Score={r['score']:<6} | Text={r['text'][:60]}")

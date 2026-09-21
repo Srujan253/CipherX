@@ -7,7 +7,7 @@ import Footer from './components/Footer'
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 overflow-x-hidden">
+      <div className="min-h-screen bg-[#f4eedb] text-[#2b2621] font-typewriter overflow-x-hidden flex flex-col justify-between">
         <Navbar />
         <Routes>
           <Route path="/" element={<Landing />} />

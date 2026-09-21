@@ -125,7 +125,7 @@ def detect_affine(ciphertext, top_n=5, refine=True):
 
 if __name__ == "__main__":
     sample = "RCLLA OAPLX"  # Ciphertext for "HELLO WORLD" (a=5, b=8)
-    print("=== 🔍 Affine Cipher Auto-Detection ===")
+    print("=== [DETECT] Affine Cipher Auto-Detection ===")
     results = detect_affine(sample, top_n=5, refine=True)
     for i, r in enumerate(results, 1):
         print(f"{i}. a={r['a']:2d} | b={r['b']:2d} | Score={r['score']:7.3f} | Text={r['text']}")
