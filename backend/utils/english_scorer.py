@@ -56,14 +56,24 @@ WEIGHTS = {
 # ====================== UTILITIES ======================
 
 def _ensure_model():
-    """Lazy-load GPT-2 only once."""
+    """Lazy-load GPT-2 only once (skips on cloud free tiers like Render to prevent 512MB RAM OOM)."""
     global _MODEL, _TOKENIZER
+    import os
+    if os.environ.get("RENDER") or os.environ.get("DISABLE_TRANSFORMER"):
+        return False
+
     if _MODEL is None or _TOKENIZER is None:
-        print("[INFO] Loading GPT-2 small model for refinement...")
-        _TOKENIZER = AutoTokenizer.from_pretrained("gpt2")
-        _MODEL = AutoModelForCausalLM.from_pretrained("gpt2").to(_DEVICE)
-        _MODEL.eval()
-        print(f"[OK] GPT-2 ready on {_DEVICE}")
+        try:
+            print("[INFO] Loading GPT-2 small model for refinement...")
+            _TOKENIZER = AutoTokenizer.from_pretrained("gpt2")
+            _MODEL = AutoModelForCausalLM.from_pretrained("gpt2").to(_DEVICE)
+            _MODEL.eval()
+            print(f"[OK] GPT-2 ready on {_DEVICE}")
+            return True
+        except Exception as e:
+            print(f"[WARN] Could not load GPT-2 ({e}), falling back to statistical scoring.")
+            return False
+    return True
 
 def clean_text(text: str) -> str:
     text = re.sub(r"[^A-Za-z\s]", " ", text)
@@ -168,7 +178,8 @@ def transformer_score(text: str) -> float:
     if len(text) < 4:
         return 0.0
     try:
-        _ensure_model()
+        if not _ensure_model() or _MODEL is None or _TOKENIZER is None:
+            return 0.0
         inputs = _TOKENIZER(text, return_tensors="pt", truncation=True, max_length=128).to(_DEVICE)
         with torch.no_grad():
             outputs = _MODEL(**inputs, labels=inputs["input_ids"])

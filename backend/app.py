@@ -46,7 +46,7 @@ def decrypt():
     if request.method == 'OPTIONS':
         return jsonify({"status": "ok"}), 200
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
         cipher_type = (data.get('cipher_type') or '').strip().lower()
         ciphertext = (data.get('ciphertext') or '').strip()
 
